@@ -19,13 +19,19 @@ async def history(message: Message):
         )
 
         if user is None:
-            await message.answer("⛔ Пользователь не найден.")
+            await message.answer(
+                "⛔ Пользователь не найден."
+            )
             return
 
         checkins = (
             db.query(CheckIn)
-            .filter(CheckIn.user_id == user.id)
-            .order_by(CheckIn.check_in.desc())
+            .filter(
+                CheckIn.user_id == user.id
+            )
+            .order_by(
+                CheckIn.check_in.desc()
+            )
             .limit(10)
             .all()
         )
@@ -39,8 +45,13 @@ async def history(message: Message):
         text = "📋 <b>История рабочих дней</b>\n\n"
 
         for item in checkins:
-            date = item.check_in.strftime("%d.%m.%Y")
-            start_time = item.check_in.strftime("%H:%M")
+            date = item.check_in.strftime(
+                "%d.%m.%Y"
+            )
+
+            start_time = item.check_in.strftime(
+                "%H:%M"
+            )
 
             text += (
                 f"📅 <b>{date}</b>\n"
@@ -48,22 +59,47 @@ async def history(message: Message):
             )
 
             if item.check_out:
-                end_time = item.check_out.strftime("%H:%M")
+                end_time = item.check_out.strftime(
+                    "%H:%M"
+                )
 
-                duration = item.check_out - item.check_in
-                total_minutes = int(duration.total_seconds() // 60)
+                duration = (
+                    item.check_out - item.check_in
+                )
+
+                total_minutes = int(
+                    duration.total_seconds() // 60
+                )
 
                 hours = total_minutes // 60
                 minutes = total_minutes % 60
 
                 text += (
                     f"🔴 Конец: <b>{end_time}</b>\n"
-                    f"⏱ Продолжительность: <b>{hours} ч {minutes} мин</b>\n\n"
+                    f"⏱ Продолжительность: "
+                    f"<b>{hours} ч {minutes} мин</b>\n"
                 )
+
             else:
                 text += (
-                    "🟡 <b>Рабочий день еще не завершен</b>\n\n"
+                    "🟡 <b>"
+                    "Рабочий день еще не завершен"
+                    "</b>\n"
                 )
+
+            if item.late_minutes > 0:
+                text += (
+                    f"⚠️ Опоздание: "
+                    f"<b>{item.late_minutes} мин</b>\n"
+                )
+
+                if item.late_reason:
+                    text += (
+                        f"📝 Причина: "
+                        f"<b>{item.late_reason}</b>\n"
+                    )
+
+            text += "\n"
 
         await message.answer(text)
 

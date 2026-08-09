@@ -1,20 +1,32 @@
 from datetime import datetime, timedelta
 
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
 
 from app.database.database import SessionLocal
 from app.database.models import CheckIn
 from app.database.crud import get_user_by_telegram_id
 from app.services.schedule import get_today_schedule
+from app.keyboards.location_keyboard import location_keyboard
+
 
 router = Router()
+
+
+class CheckinState(StatesGroup):
+    waiting_location = State()
+
 
 pending_late = {}
 
 
 @router.message(F.text == "🟢 Чекин")
-async def checkin(message: Message):
+async def checkin(
+    message: Message,
+    state: FSMContext
+):
     db = SessionLocal()
 
     try:
@@ -29,6 +41,7 @@ async def checkin(message: Message):
             )
             return
 
+
         schedule = get_today_schedule(
             db,
             user.id
@@ -40,6 +53,7 @@ async def checkin(message: Message):
             )
             return
 
+
         active_checkin = (
             db.query(CheckIn)
             .filter(
@@ -49,6 +63,7 @@ async def checkin(message: Message):
             .first()
         )
 
+
         if active_checkin:
             await message.answer(
                 "⚠️ <b>Рабочий день уже начат.</b>\n\n"
@@ -56,7 +71,9 @@ async def checkin(message: Message):
             )
             return
 
+
         now = datetime.now()
+
 
         if now.time() < schedule.start_time:
             await message.answer(
@@ -66,92 +83,79 @@ async def checkin(message: Message):
             )
             return
 
+
         shift_start = datetime.combine(
             now.date(),
             schedule.start_time
         )
 
+
         late_limit = shift_start + timedelta(minutes=20)
 
-        # Время с 08:45 до 09:05 включительно — без опоздания
-        if now <= late_limit:
-            checkin = CheckIn(
-                user_id=user.id,
-                check_in=now,
-                late_minutes=0,
-                late_reason=None
+
+        if now > late_limit:
+
+            late_minutes = int(
+                (now - shift_start)
+                .total_seconds() // 60
             )
 
-            db.add(checkin)
-            db.commit()
+            pending_late[message.from_user.id] = {
+                "user_id": user.id,
+                "check_in": now,
+                "late_minutes": late_minutes
+            }
+
 
             await message.answer(
-                f"""
-🟢 <b>ЧЕКИН</b>
-
-👤 <b>{message.from_user.full_name}</b>
-
-📅 {now.strftime('%d.%m.%Y')}
-🕒 {now.strftime('%H:%M:%S')}
-
-✅ Рабочий день начат!
-"""
+                f"⚠️ <b>Вы опоздали на {late_minutes} мин.</b>\n\n"
+                "Сначала отправьте геолокацию.\n"
+                "После проверки укажите причину опоздания."
             )
 
-            return
+        else:
 
-        # Опоздание
-        late_minutes = int(
-            (now - shift_start).total_seconds() // 60
-        )
+            await state.set_state(
+                CheckinState.waiting_location
+            )
 
-        pending_late[message.from_user.id] = {
-            "user_id": user.id,
-            "check_in": now,
-            "late_minutes": late_minutes
-        }
 
-        await message.answer(
-            f"⚠️ <b>Вы опоздали на {late_minutes} мин.</b>\n\n"
-            "Пожалуйста, напишите причину опоздания."
-        )
+            await message.answer(
+                "📍 Для начала рабочего дня отправьте вашу геолокацию.",
+                reply_markup=location_keyboard()
+            )
+
 
     finally:
         db.close()
+
 
 
 @router.message(
-    lambda message: message.from_user.id in pending_late
+    CheckinState.waiting_location,
+    F.location
 )
-async def late_reason(message: Message):
-    data = pending_late.pop(message.from_user.id)
+async def get_location(
+    message: Message,
+    state: FSMContext
+):
 
-    db = SessionLocal()
+    latitude = message.location.latitude
+    longitude = message.location.longitude
 
-    try:
-        checkin = CheckIn(
-            user_id=data["user_id"],
-            check_in=data["check_in"],
-            late_minutes=data["late_minutes"],
-            late_reason=message.text
-        )
 
-        db.add(checkin)
-        db.commit()
+    await state.update_data(
+        latitude=latitude,
+        longitude=longitude
+    )
 
-        await message.answer(
-            f"""
-🟢 <b>ЧЕКИН</b>
 
-📅 {data["check_in"].strftime("%d.%m.%Y")}
-🕒 {data["check_in"].strftime("%H:%M:%S")}
+    await message.answer(
+        "📍 Геолокация получена!\n\n"
+        f"Широта: <code>{latitude}</code>\n"
+        f"Долгота: <code>{longitude}</code>\n\n"
+        "⏳ Следующий шаг — проверка расстояния до рабочего места."
+    )
 
-⚠️ Опоздание: <b>{data["late_minutes"]} мин.</b>
-📝 Причина: <b>{message.text}</b>
 
-✅ Рабочий день начат!
-"""
-        )
-
-    finally:
-        db.close()
+    await state.clear()

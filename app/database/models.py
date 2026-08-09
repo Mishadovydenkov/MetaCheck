@@ -8,7 +8,9 @@ from sqlalchemy import (
     Integer,
     String,
     Time,
+    Float,
 )
+
 from sqlalchemy.orm import relationship
 
 from app.database.database import Base
@@ -72,6 +74,17 @@ class CheckIn(Base):
 
     late_reason = Column(
         String,
+        nullable=True
+    )
+
+    # Новое: координаты сотрудника при чекине
+    latitude = Column(
+        Float,
+        nullable=True
+    )
+
+    longitude = Column(
+        Float,
         nullable=True
     )
 
