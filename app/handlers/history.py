@@ -87,6 +87,7 @@ async def history(message: Message):
                     "</b>\n"
                 )
 
+            # Опоздание
             if item.late_minutes > 0:
                 text += (
                     f"⚠️ Опоздание: "
@@ -98,6 +99,30 @@ async def history(message: Message):
                         f"📝 Причина: "
                         f"<b>{item.late_reason}</b>\n"
                     )
+
+            # Ранний уход
+            if item.early_leave_minutes > 0:
+                text += (
+                    f"🔻 Ранний уход: "
+                    f"<b>{item.early_leave_minutes} мин</b>\n"
+                )
+
+            # Переработка
+            if item.overtime_minutes > 0:
+                text += (
+                    f"⏫ Переработка: "
+                    f"<b>{item.overtime_minutes} мин</b>\n"
+                )
+
+            # Если человек ушел ровно по графику
+            if (
+                item.check_out
+                and item.early_leave_minutes == 0
+                and item.overtime_minutes == 0
+            ):
+                text += (
+                    "✅ Уход по графику\n"
+                )
 
             text += "\n"
 

@@ -1,10 +1,9 @@
-from datetime import datetime
-
 from app.database.models import WorkSchedule
+from app.services.time import get_current_datetime
 
 
 def get_today_schedule(db, user_id):
-    today = datetime.now().weekday()
+    today = get_current_datetime().weekday()
 
     schedule = (
         db.query(WorkSchedule)

@@ -77,15 +77,16 @@ class CheckIn(Base):
         nullable=True
     )
 
-    # Новое: координаты сотрудника при чекине
-    latitude = Column(
-        Float,
-        nullable=True
+    early_leave_minutes = Column(
+        Integer,
+        default=0,
+        nullable=False
     )
 
-    longitude = Column(
-        Float,
-        nullable=True
+    overtime_minutes = Column(
+        Integer,
+        default=0,
+        nullable=False
     )
 
     user = relationship("User")
