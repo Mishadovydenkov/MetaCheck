@@ -12,6 +12,7 @@ from app.services.schedule import get_today_schedule
 from app.services.geolocation import calculate_distance
 from app.services.time import get_current_datetime
 from app.keyboards.location_keyboard import location_keyboard
+from app.keyboards.main_keyboard import main_keyboard
 from app.config import (
     OFFICE_LAT,
     OFFICE_LON,
@@ -92,7 +93,8 @@ async def checkin(
                 f"⛔ Рабочий день уже закончился.\n\n"
                 f"График на сегодня: "
                 f"<b>{schedule.start_time.strftime('%H:%M')} - "
-                f"{schedule.end_time.strftime('%H:%M')}</b>"
+                f"{schedule.end_time.strftime('%H:%M')}</b>",
+                reply_markup=main_keyboard
             )
             return
 
@@ -120,7 +122,6 @@ async def checkin(
             }
 
         else:
-            # Пришел вовремя
             pending_late.pop(
                 message.from_user.id,
                 None
@@ -158,6 +159,7 @@ async def get_location(
         OFFICE_LON
     )
 
+    # Сотрудник находится слишком далеко
     if distance > MAX_DISTANCE_METERS:
         await message.answer(
             f"❌ <b>Вы находитесь слишком далеко "
@@ -166,7 +168,8 @@ async def get_location(
             f"<b>{distance:.0f} м</b>\n"
             f"📏 Допустимое расстояние: "
             f"<b>{MAX_DISTANCE_METERS} м</b>\n\n"
-            "Чекин не выполнен."
+            "Чекин не выполнен.",
+            reply_markup=main_keyboard
         )
 
         await state.clear()
@@ -209,7 +212,8 @@ async def get_location(
                 f"🕒 {now.strftime('%H:%M:%S')}\n"
                 f"📍 Расстояние до офиса: "
                 f"{distance:.0f} м\n\n"
-                "✅ Рабочий день начат!"
+                "✅ Рабочий день начат!",
+                reply_markup=main_keyboard
             )
 
             await state.clear()
@@ -248,7 +252,8 @@ async def late_reason(
     if data is None:
         await message.answer(
             "❌ Данные о чекине не найдены. "
-            "Попробуйте выполнить чекин заново."
+            "Попробуйте выполнить чекин заново.",
+            reply_markup=main_keyboard
         )
 
         await state.clear()
@@ -274,7 +279,8 @@ async def late_reason(
             f"⚠️ Опоздание: "
             f"<b>{data['late_minutes']} мин.</b>\n"
             f"📝 Причина: {message.text}\n\n"
-            "✅ Рабочий день начат!"
+            "✅ Рабочий день начат!",
+            reply_markup=main_keyboard
         )
 
     finally:
